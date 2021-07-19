@@ -1,0 +1,26 @@
+{
+	"models": [
+		"glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf",
+		"glTF-Sample-Models/2.0/BrainStem/glTF/BrainStem.gltf"
+	],
+	"graph": [
+		{
+			"name": "Sponza",
+			"model": 0
+		},
+		{
+			"name": "DancingRobot1",
+			"model": 1,
+			"translation": [4, 0, -0.5],
+			"scaling": 1.2,
+			"rotation": [0, 0.7071068, 0, -0.7071068]
+		},
+		{
+			"name": "DancingRobot2",
+			"model": 1,
+			"translation": [-5, 0, -0.5],
+			"scaling": 1.2,
+			"rotation": [0, 0.7071068, 0, 0.7071068]
+		}
+	]
+}

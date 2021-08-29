@@ -120,12 +120,20 @@ public:
         }
 
         m_ConstantBuffer = GetDevice()->createBuffer(nvrhi::utils::CreateVolatileConstantBufferDesc(sizeof(math::float4x4), "ConstantBuffer", engine::c_MaxRenderPassConstantBufferVersions));
-
+        
         nvrhi::VertexAttributeDesc attributes[] = {
-            { "POSITION", nvrhi::Format::RGB32_FLOAT, 1, 0, offsetof(Vertex, position), sizeof(Vertex), false },
-            { "UV", nvrhi::Format::RG32_FLOAT, 1, 0, offsetof(Vertex, uv), sizeof(Vertex), false },
+            nvrhi::VertexAttributeDesc()
+                .setName("POSITION")
+                .setFormat(nvrhi::Format::RGB32_FLOAT)
+                .setOffset(offsetof(Vertex, position))
+                .setElementStride(sizeof(Vertex)),
+            nvrhi::VertexAttributeDesc()
+                .setName("UV")
+                .setFormat(nvrhi::Format::RG32_FLOAT)
+                .setOffset(offsetof(Vertex, uv))
+                .setElementStride(sizeof(Vertex)),
         };
-        m_InputLayout = GetDevice()->createInputLayout(attributes, dim(attributes), m_VertexShader);
+        m_InputLayout = GetDevice()->createInputLayout(attributes, uint32_t(std::size(attributes)), m_VertexShader);
 
 
         engine::CommonRenderPasses commonPasses(GetDevice(), shaderFactory);

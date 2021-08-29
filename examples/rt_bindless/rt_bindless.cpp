@@ -354,7 +354,7 @@ public:
 
             auto node = instance->GetNode();
             assert(node);
-            dm::affineToColumnMajor(node->GetLocalToWorldTransformFloat(), &instanceDesc.transform[0][0]);
+            dm::affineToColumnMajor(node->GetLocalToWorldTransformFloat(), instanceDesc.transform);
 
             instances.push_back(instanceDesc);
         }

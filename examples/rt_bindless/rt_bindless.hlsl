@@ -252,6 +252,61 @@ MaterialSample sampleGeometryMaterial(
     return EvaluateSceneMaterial(gs.geometryNormal, gs.tangent, gs.material, textures);
 }
 
+bool considerTransparentMaterial(uint instanceIndex, uint triangleIndex, uint geometryIndex, float2 rayBarycentrics)
+{
+    GeometrySample gs = getGeometryFromHit(instanceIndex, triangleIndex, geometryIndex, rayBarycentrics,
+        GeomAttr_TexCoord, t_InstanceData, t_GeometryData, t_MaterialConstants);
+
+    if (gs.material.domain != MaterialDomain_AlphaTested)
+        return true;
+
+    MaterialSample ms = sampleGeometryMaterial(gs, 0, 0, 0, MatAttr_BaseColor | MatAttr_Transmission, s_MaterialSampler);
+
+    bool alphaMask = ms.opacity >= gs.material.alphaCutoff;
+
+    return alphaMask;
+}
+
+void traceRay(RayDesc ray, inout RayPayload payload)
+{
+    payload.instanceID = ~0u;
+
+#if USE_RAY_QUERY
+
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    rayQuery.TraceRayInline(SceneBVH, RAY_FLAG_NONE, 0xff, ray);
+
+    while (rayQuery.Proceed())
+    {
+        if (rayQuery.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
+        {
+            if (considerTransparentMaterial(
+                rayQuery.CandidateInstanceID(),
+                rayQuery.CandidatePrimitiveIndex(),
+                rayQuery.CandidateGeometryIndex(),
+                rayQuery.CandidateTriangleBarycentrics()))
+            {
+                rayQuery.CommitNonOpaqueTriangleHit();
+            }
+        }
+    }
+
+    if (rayQuery.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
+    {
+        payload.instanceID = rayQuery.CommittedInstanceID();
+        payload.primitiveIndex = rayQuery.CommittedPrimitiveIndex();
+        payload.geometryIndex = rayQuery.CommittedGeometryIndex();
+        payload.barycentrics = rayQuery.CommittedTriangleBarycentrics();
+        payload.committedRayT = rayQuery.CommittedRayT();
+    }
+
+#else // !USE_RAY_QUERY
+
+    TraceRay(SceneBVH, RAY_FLAG_NONE, 0xff, 0, 0, 0, ray, payload);
+
+#endif
+}
+
 float3 shadeSurface(
     uint2 pixelPosition,
     RayPayload payload,
@@ -285,8 +340,9 @@ float3 shadeSurface(
     float3 diffuseTerm = 0, specularTerm = 0;
 
     RayDesc shadowRay = setupShadowRay(worldPos, viewDirection);
+
     payload.instanceID = ~0u;
-    TraceRay(SceneBVH, RAY_FLAG_NONE, 0xff, 0, 0, 0, shadowRay, payload);
+    traceRay(shadowRay, payload);
     if (payload.instanceID == ~0u)
     {
         ShadeSurface(g_Const.light, ms, worldPos, viewDirection, diffuseTerm, specularTerm);
@@ -294,7 +350,9 @@ float3 shadeSurface(
 
     return diffuseTerm + specularTerm + ms.diffuseAlbedo * g_Const.ambientColor.rgb;
 }
-struct Attributes 
+
+#if !USE_RAY_QUERY
+struct Attributes
 {
     float2 uv;
 };
@@ -318,31 +376,27 @@ void ClosestHit(inout RayPayload payload : SV_RayPayload, in Attributes attrib :
 [shader("anyhit")]
 void AnyHit(inout RayPayload payload : SV_RayPayload, in Attributes attrib : SV_IntersectionAttributes)
 {
-    GeometrySample gs = getGeometryFromHit(InstanceID(), PrimitiveIndex(), GeometryIndex(), attrib.uv, 
-        GeomAttr_TexCoord, t_InstanceData, t_GeometryData, t_MaterialConstants);
-    
-    MaterialSample ms = sampleGeometryMaterial(gs, 0, 0, 0, MatAttr_BaseColor | MatAttr_Transmission, s_MaterialSampler);
-
-    bool alphaMask = ms.opacity >= gs.material.alphaCutoff;
-
-    if (gs.material.domain == MaterialDomain_AlphaTested && !alphaMask)
+    if (!considerTransparentMaterial(InstanceID(), PrimitiveIndex(), GeometryIndex(), attrib.uv))
         IgnoreHit();
 }
+#endif
 
+#if USE_RAY_QUERY
+[numthreads(16, 16, 1)]
+void main(uint2 pixelPosition : SV_DispatchThreadID)
+#else
 [shader("raygeneration")]
 void RayGen()
+#endif
 {
+#if !USE_RAY_QUERY
     uint2 pixelPosition = DispatchRaysIndex().xy;
+#endif
 
     RayDesc ray = setupPrimaryRay(pixelPosition, g_Const.view);
-    
-    RayPayload payload;
-    payload.committedRayT = 0;
-    payload.instanceID = ~0u;
-    payload.primitiveIndex = 0;
-    payload.barycentrics = 0;
 
-    TraceRay(SceneBVH, RAY_FLAG_NONE, 0xff, 0, 0, 0, ray, payload);
+    RayPayload payload = (RayPayload)0;
+    traceRay(ray, payload);
 
     if (payload.instanceID == ~0u)
     {

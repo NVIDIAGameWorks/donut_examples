@@ -47,8 +47,10 @@ private:
 	std::shared_ptr<vfs::RootFileSystem> m_RootFS;
 
     nvrhi::ShaderLibraryHandle m_ShaderLibrary;
-    nvrhi::rt::PipelineHandle m_Pipeline;
+    nvrhi::rt::PipelineHandle m_RayPipeline;
     nvrhi::rt::ShaderTableHandle m_ShaderTable;
+    nvrhi::ShaderHandle m_ComputeShader;
+    nvrhi::ComputePipelineHandle m_ComputePipeline;
     nvrhi::CommandListHandle m_CommandList;
     nvrhi::BindingLayoutHandle m_BindingLayout;
     nvrhi::BindingSetHandle m_BindingSet;
@@ -73,7 +75,7 @@ private:
 public:
     using ApplicationBase::ApplicationBase;
 
-    bool Init()
+    bool Init(bool useRayQuery)
     {
         std::filesystem::path sceneFileName = app::GetDirectoryWithExecutable().parent_path() / "media/sponza-plus.scene.json";
         std::filesystem::path frameworkShaderPath = app::GetDirectoryWithExecutable() / "shaders/framework" / app::GetShaderTypeName(GetDevice()->getGraphicsAPI());
@@ -96,6 +98,19 @@ public:
             nvrhi::BindingLayoutItem::Texture_SRV(2)
         };
         m_BindlessLayout = GetDevice()->createBindlessLayout(bindlessLayoutDesc);
+
+        nvrhi::BindingLayoutDesc globalBindingLayoutDesc;
+        globalBindingLayoutDesc.visibility = nvrhi::ShaderType::All;
+        globalBindingLayoutDesc.bindings = {
+            nvrhi::BindingLayoutItem::VolatileConstantBuffer(0),
+            nvrhi::BindingLayoutItem::RayTracingAccelStruct(0),
+            nvrhi::BindingLayoutItem::StructuredBuffer_SRV(1),
+            nvrhi::BindingLayoutItem::StructuredBuffer_SRV(2),
+            nvrhi::BindingLayoutItem::StructuredBuffer_SRV(3),
+            nvrhi::BindingLayoutItem::Sampler(0),
+            nvrhi::BindingLayoutItem::Texture_UAV(0)
+        };
+        m_BindingLayout = GetDevice()->createBindingLayout(globalBindingLayoutDesc);
 
         m_DescriptorTable = std::make_shared<engine::DescriptorTableManager>(GetDevice(), m_BindlessLayout);
 
@@ -120,8 +135,16 @@ public:
         m_ConstantBuffer = GetDevice()->createBuffer(nvrhi::utils::CreateVolatileConstantBufferDesc(
             sizeof(LightingConstants), "LightingConstants", engine::c_MaxRenderPassConstantBufferVersions));
 
-        if (!CreateRayTracingPipeline(*m_ShaderFactory))
-            return false;
+        if (useRayQuery)
+        {
+            if (!CreateComputePipeline(*m_ShaderFactory))
+                return false;
+        }
+        else
+        {
+            if (!CreateRayTracingPipeline(*m_ShaderFactory))
+                return false;
+        }
 
         m_CommandList = GetDevice()->createCommandList();
 
@@ -200,29 +223,17 @@ public:
             }
         }
 
-        GetDeviceManager()->SetInformativeWindowTitle(g_WindowTitle);
+        const char* extraInfo = (m_RayPipeline != nullptr) ? "- using RayPipeline" : "- using RayQuery";
+        GetDeviceManager()->SetInformativeWindowTitle(g_WindowTitle, extraInfo);
     }
 
     bool CreateRayTracingPipeline(engine::ShaderFactory& shaderFactory)
     {
-        m_ShaderLibrary = shaderFactory.CreateShaderLibrary("app/rt_bindless.hlsl", nullptr);
+        std::vector<engine::ShaderMacro> defines = { { "USE_RAY_QUERY", "0" } };
+        m_ShaderLibrary = shaderFactory.CreateShaderLibrary("app/rt_bindless.hlsl", &defines);
 
         if (!m_ShaderLibrary)
             return false;
-
-        nvrhi::BindingLayoutDesc globalBindingLayoutDesc;
-        globalBindingLayoutDesc.visibility = nvrhi::ShaderType::All;
-        globalBindingLayoutDesc.bindings = {
-            nvrhi::BindingLayoutItem::VolatileConstantBuffer(0),
-            nvrhi::BindingLayoutItem::RayTracingAccelStruct(0),
-            nvrhi::BindingLayoutItem::StructuredBuffer_SRV(1),
-            nvrhi::BindingLayoutItem::StructuredBuffer_SRV(2),
-            nvrhi::BindingLayoutItem::StructuredBuffer_SRV(3),
-            nvrhi::BindingLayoutItem::Sampler(0),
-            nvrhi::BindingLayoutItem::Texture_UAV(0)
-        };
-
-        m_BindingLayout = GetDevice()->createBindingLayout(globalBindingLayoutDesc);
 
         nvrhi::rt::PipelineDesc pipelineDesc;
         pipelineDesc.globalBindingLayouts = { m_BindingLayout, m_BindlessLayout };
@@ -242,12 +253,40 @@ public:
 
         pipelineDesc.maxPayloadSize = sizeof(float) * 6;
 
-        m_Pipeline = GetDevice()->createRayTracingPipeline(pipelineDesc);
+        m_RayPipeline = GetDevice()->createRayTracingPipeline(pipelineDesc);
 
-        m_ShaderTable = m_Pipeline->createShaderTable();
+        if (!m_RayPipeline)
+            return false;
+
+        m_ShaderTable = m_RayPipeline->createShaderTable();
+
+        if (!m_ShaderTable)
+            return false;
+
         m_ShaderTable->setRayGenerationShader("RayGen");
         m_ShaderTable->addHitGroup("HitGroup");
         m_ShaderTable->addMissShader("Miss");
+
+        return true;
+    }
+
+    bool CreateComputePipeline(engine::ShaderFactory& shaderFactory)
+    {
+        std::vector<engine::ShaderMacro> defines = { { "USE_RAY_QUERY", "1" } };
+        m_ComputeShader = shaderFactory.CreateShader("app/rt_bindless.hlsl", "main", &defines, nvrhi::ShaderType::Compute);
+
+        if (!m_ComputeShader)
+            return false;
+
+        auto pipelineDesc = nvrhi::ComputePipelineDesc()
+            .setComputeShader(m_ComputeShader)
+            .addBindingLayout(m_BindingLayout)
+            .addBindingLayout(m_BindlessLayout);
+
+        m_ComputePipeline = GetDevice()->createComputePipeline(pipelineDesc);
+
+        if (!m_ComputePipeline)
+            return false;
 
         return true;
     }
@@ -420,15 +459,29 @@ public:
         m_SunLight->FillLightConstants(constants.light);
         m_CommandList->writeBuffer(m_ConstantBuffer, &constants, sizeof(constants));
 
-        nvrhi::rt::State state;
-        state.shaderTable = m_ShaderTable;
-        state.bindings = { m_BindingSet, m_DescriptorTable->GetDescriptorTable() };
-        m_CommandList->setRayTracingState(state);
+        if (m_RayPipeline)
+        {
+            nvrhi::rt::State state;
+            state.shaderTable = m_ShaderTable;
+            state.bindings = { m_BindingSet, m_DescriptorTable->GetDescriptorTable() };
+            m_CommandList->setRayTracingState(state);
 
-        nvrhi::rt::DispatchRaysArguments args;
-        args.width = fbinfo.width;
-        args.height = fbinfo.height;
-        m_CommandList->dispatchRays(args);
+            nvrhi::rt::DispatchRaysArguments args;
+            args.width = fbinfo.width;
+            args.height = fbinfo.height;
+            m_CommandList->dispatchRays(args);
+        }
+        else if (m_ComputePipeline)
+        {
+            nvrhi::ComputeState state;
+            state.pipeline = m_ComputePipeline;
+            state.bindings = { m_BindingSet, m_DescriptorTable->GetDescriptorTable() };
+            m_CommandList->setComputeState(state);
+
+            m_CommandList->dispatch(
+                dm::div_ceil(fbinfo.width, 16),
+                dm::div_ceil(fbinfo.height, 16));
+        }
         
         m_CommonPasses->BlitTexture(m_CommandList, framebuffer, m_ColorBuffer, m_BindingCache.get());
 
@@ -449,10 +502,20 @@ int main(int __argc, const char** __argv)
 
     app::DeviceCreationParameters deviceParams;
     deviceParams.enableRayTracingExtensions = true;
-#ifdef _DEBUG
-    deviceParams.enableDebugRuntime = true; 
-    deviceParams.enableNvrhiValidationLayer = true;
-#endif
+
+    bool useRayQuery = false;
+    for (int i = 1; i < __argc; i++)
+    {
+        if (strcmp(__argv[i], "-rayQuery") == 0)
+        {
+            useRayQuery = true;
+        }
+        else if (strcmp(__argv[i], "-debug") == 0)
+        {
+            deviceParams.enableDebugRuntime = true;
+            deviceParams.enableNvrhiValidationLayer = true;
+        }
+    }
 
     if (!deviceManager->CreateWindowDeviceAndSwapChain(deviceParams, g_WindowTitle))
     {
@@ -460,15 +523,21 @@ int main(int __argc, const char** __argv)
         return 1;
     }
 
-    if (!deviceManager->GetDevice()->queryFeatureSupport(nvrhi::Feature::RayTracingPipeline))
+    if (!useRayQuery && !deviceManager->GetDevice()->queryFeatureSupport(nvrhi::Feature::RayTracingPipeline))
     {
         log::fatal("The graphics device does not support Ray Tracing Pipelines");
         return 1;
     }
 
+    if (useRayQuery && !deviceManager->GetDevice()->queryFeatureSupport(nvrhi::Feature::RayQuery))
+    {
+        log::fatal("The graphics device does not support Ray Queries");
+        return 1;
+    }
+
     {
         BindlessRayTracing example(deviceManager);
-        if (example.Init())
+        if (example.Init(useRayQuery))
         {
             deviceManager->AddRenderPassToBack(&example);
             deviceManager->RunMessageLoop();

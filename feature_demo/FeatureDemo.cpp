@@ -352,7 +352,21 @@ public:
         m_OpaqueDrawStrategy = std::make_shared<InstancedOpaqueDrawStrategy>();
         m_TransparentDrawStrategy = std::make_shared<TransparentDrawStrategy>();
 
-        m_ShadowMap = std::make_shared<CascadedShadowMap>(GetDevice(), 2048, 4, 0, nvrhi::Format::D24S8);
+
+        const nvrhi::Format shadowMapFormats[] = {
+            nvrhi::Format::D24S8,
+            nvrhi::Format::D32,
+            nvrhi::Format::D16,
+            nvrhi::Format::D32S8 };
+
+        const nvrhi::FormatSupport shadowMapFeatures =
+            nvrhi::FormatSupport::Texture |
+            nvrhi::FormatSupport::DepthStencil |
+            nvrhi::FormatSupport::ShaderLoad;
+        
+        nvrhi::Format shadowMapFormat = nvrhi::utils::ChooseFormat(GetDevice(), shadowMapFeatures, shadowMapFormats, std::size(shadowMapFormats));
+        
+        m_ShadowMap = std::make_shared<CascadedShadowMap>(GetDevice(), 2048, 4, 0, shadowMapFormat);
         m_ShadowMap->SetupProxyViews();
         
         m_ShadowFramebuffer = std::make_shared<FramebufferFactory>(GetDevice());
@@ -1226,13 +1240,24 @@ public:
 
         nvrhi::TextureHandle colorTexture = device->createTexture(cubemapDesc);
 
+        const nvrhi::Format depthFormats[] = {
+            nvrhi::Format::D24S8,
+            nvrhi::Format::D32,
+            nvrhi::Format::D16,
+            nvrhi::Format::D32S8 };
+
+        const nvrhi::FormatSupport depthFeatures =
+            nvrhi::FormatSupport::Texture |
+            nvrhi::FormatSupport::DepthStencil |
+            nvrhi::FormatSupport::ShaderLoad;
+
         cubemapDesc.mipLevels = 1;
-        cubemapDesc.format = nvrhi::Format::D24S8;
+        cubemapDesc.format = nvrhi::utils::ChooseFormat(GetDevice(), depthFeatures, depthFormats, std::size(depthFormats));
         cubemapDesc.isTypeless = true;
         cubemapDesc.initialState = nvrhi::ResourceStates::DepthWrite;
 
         nvrhi::TextureHandle depthTexture = device->createTexture(cubemapDesc);
-        
+
         std::shared_ptr<FramebufferFactory> framebuffer = std::make_shared<FramebufferFactory>(device);
         framebuffer->RenderTargets = { colorTexture };
         framebuffer->DepthTarget = depthTexture;
@@ -1258,7 +1283,9 @@ public:
         nvrhi::CommandListHandle commandList = device->createCommandList();
         commandList->open();
         commandList->clearTextureFloat(colorTexture, nvrhi::AllSubresources, nvrhi::Color(0.f));
-        commandList->clearDepthStencilTexture(depthTexture, nvrhi::AllSubresources, true, 0.f, true, 0);
+
+        const nvrhi::FormatInfo& depthFormatInfo = nvrhi::getFormatInfo(depthTexture->getDesc().format);
+        commandList->clearDepthStencilTexture(depthTexture, nvrhi::AllSubresources, true, 0.f, depthFormatInfo.hasStencil, 0);
 
         box3 sceneBounds = m_Scene->GetSceneGraph()->GetRootNode()->GetGlobalBoundingBox();
         float zRange = length(sceneBounds.diagonal()) * 0.5f;
@@ -1606,7 +1633,7 @@ int main(int __argc, const char* const* __argv)
     deviceParams.backBufferWidth = 1920;
     deviceParams.backBufferHeight = 1080;
     deviceParams.swapChainSampleCount = 1;
-    deviceParams.swapChainBufferCount = 2;
+    deviceParams.swapChainBufferCount = 3;
     deviceParams.startFullscreen = false;
     deviceParams.vsyncEnabled = true;
 

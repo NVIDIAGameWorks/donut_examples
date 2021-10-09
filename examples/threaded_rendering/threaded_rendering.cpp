@@ -198,7 +198,7 @@ public:
         m_ForwardShadingPass->PrepareLights(context, commandList, {}, 1.0f, 0.3f, {});
 
         commandList->setEnableAutomaticBarriers(false);
-        commandList->setResourceStatesForFramebuffer(m_Framebuffer->GetFramebuffer(*faceView), true);
+        commandList->setResourceStatesForFramebuffer(m_Framebuffer->GetFramebuffer(*faceView));
         commandList->commitBarriers();
 
         render::InstancedOpaqueDrawStrategy strategy;

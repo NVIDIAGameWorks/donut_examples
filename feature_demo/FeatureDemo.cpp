@@ -70,6 +70,7 @@ using namespace donut::engine;
 using namespace donut::render;
 
 static bool g_PrintSceneGraph = false;
+static bool g_PrintFormats = false;
 
 class RenderTargets : public GBufferRenderTargets
 {
@@ -1608,6 +1609,10 @@ bool ProcessCommandLine(int argc, const char* const* argv, DeviceCreationParamet
         {
             g_PrintSceneGraph = true;
         }
+        else if (!strcmp(argv[i], "-print-formats"))
+        {
+            g_PrintFormats = true;
+        }
         else if (argv[i][0] != '-')
         {
             sceneName = argv[i];
@@ -1654,6 +1659,32 @@ int main(int __argc, const char* const* __argv)
         log::error("Cannot initialize a %s graphics device with the requested parameters", apiString);
 		return 1;
 	}
+
+    if (g_PrintFormats)
+    {
+        for (uint32_t format = 0; format < (uint32_t)nvrhi::Format::COUNT; format++)
+        {
+            auto support = deviceManager->GetDevice()->queryFormatSupport((nvrhi::Format)format);
+            const auto& formatInfo = nvrhi::getFormatInfo((nvrhi::Format)format);
+
+            char features[13];
+            features[ 0] = (support & nvrhi::FormatSupport::Buffer) != 0         ? 'B' : '.';
+            features[ 1] = (support & nvrhi::FormatSupport::IndexBuffer) != 0    ? 'I' : '.';
+            features[ 2] = (support & nvrhi::FormatSupport::VertexBuffer) != 0   ? 'V' : '.';
+            features[ 3] = (support & nvrhi::FormatSupport::Texture) != 0        ? 'T' : '.';
+            features[ 4] = (support & nvrhi::FormatSupport::DepthStencil) != 0   ? 'D' : '.';
+            features[ 5] = (support & nvrhi::FormatSupport::RenderTarget) != 0   ? 'R' : '.';
+            features[ 6] = (support & nvrhi::FormatSupport::Blendable) != 0      ? 'b' : '.';
+            features[ 7] = (support & nvrhi::FormatSupport::ShaderLoad) != 0     ? 'L' : '.';
+            features[ 8] = (support & nvrhi::FormatSupport::ShaderSample) != 0   ? 'S' : '.';
+            features[ 9] = (support & nvrhi::FormatSupport::ShaderUavLoad) != 0  ? 'l' : '.';
+            features[10] = (support & nvrhi::FormatSupport::ShaderUavStore) != 0 ? 's' : '.';
+            features[11] = (support & nvrhi::FormatSupport::ShaderAtomic) != 0   ? 'A' : '.';
+            features[12] = 0;
+
+            log::info("%17s: %s", formatInfo.name, features);
+        }
+    }
 
     {
         UIData uiData;

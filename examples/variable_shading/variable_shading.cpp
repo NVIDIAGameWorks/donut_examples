@@ -485,7 +485,7 @@ public:
         // TAA pass (runs at full rate)
         {
             render::TemporalAntiAliasingParameters params = {};
-            m_temporalPass->TemporalResolve(m_CommandList, params, m_PreviousViewsValid, m_View, m_PreviousViewsValid ? m_ViewPrevious : m_View);
+            m_temporalPass->TemporalResolve(m_CommandList, params, m_PreviousViewsValid, m_View, m_View);
             m_ViewPrevious = m_View;
             m_PreviousViewsValid = true;
         }

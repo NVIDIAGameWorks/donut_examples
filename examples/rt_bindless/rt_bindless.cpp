@@ -319,11 +319,11 @@ public:
         // don't compact acceleration structures that are built per frame
         if (mesh.skinPrototype != nullptr)
         {
-            blasDesc.buildFlags = nvrhi::rt::AccelStructBuildFlags::PerferFastTrace;
+            blasDesc.buildFlags = nvrhi::rt::AccelStructBuildFlags::PreferFastTrace;
         }
         else
         {
-            blasDesc.buildFlags = nvrhi::rt::AccelStructBuildFlags::PerferFastTrace | nvrhi::rt::AccelStructBuildFlags::AllowCompaction;
+            blasDesc.buildFlags = nvrhi::rt::AccelStructBuildFlags::PreferFastTrace | nvrhi::rt::AccelStructBuildFlags::AllowCompaction;
         }
     }
 

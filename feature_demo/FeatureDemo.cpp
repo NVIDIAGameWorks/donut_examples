@@ -1117,7 +1117,6 @@ public:
         if (m_Pick)
         {
             m_Pick = false;
-            GetDevice()->waitForIdle();
             uint4 pixelValue = m_PixelReadbackPass->ReadUInts();
             m_ui.SelectedMaterial = nullptr;
             m_ui.SelectedNode = nullptr;

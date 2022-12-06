@@ -292,7 +292,7 @@ public:
 
     void Render(nvrhi::IFramebuffer* framebuffer) override
     {
-        const nvrhi::FramebufferInfo& fbinfo = framebuffer->getFramebufferInfo();
+        const nvrhi::FramebufferInfoEx& fbinfo = framebuffer->getFramebufferInfo();
 
         uint2 size = uint2(fbinfo.width, fbinfo.height);
 

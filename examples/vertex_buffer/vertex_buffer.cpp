@@ -207,7 +207,7 @@ public:
 
     void Render(nvrhi::IFramebuffer* framebuffer) override
     {
-        const nvrhi::FramebufferInfo& fbinfo = framebuffer->getFramebufferInfo();
+        const nvrhi::FramebufferInfoEx& fbinfo = framebuffer->getFramebufferInfo();
 
         if (!m_Pipeline)
         {

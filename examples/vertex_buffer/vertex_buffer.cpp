@@ -80,6 +80,15 @@ static const uint32_t g_Indices[] = {
     20, 21, 22,  20, 23, 21, // bottom face
 };
 
+constexpr uint32_t c_NumViews = 4;
+
+static const math::float3 g_RotationAxes[c_NumViews] = {
+    math::float3(1.f, 0.f, 0.f),
+    math::float3(0.f, 1.f, 0.f),
+    math::float3(0.f, 0.f, 1.f),
+    math::float3(1.f, 1.f, 1.f),
+};
+
 class VertexBuffer : public app::IRenderPass
 {
 private:
@@ -91,13 +100,24 @@ private:
     nvrhi::TextureHandle m_Texture;
     nvrhi::InputLayoutHandle m_InputLayout;
     nvrhi::BindingLayoutHandle m_BindingLayout;
-    nvrhi::BindingSetHandle m_BindingSet;
+    nvrhi::BindingSetHandle m_BindingSets[c_NumViews];
     nvrhi::GraphicsPipelineHandle m_Pipeline;
     nvrhi::CommandListHandle m_CommandList;
     float m_Rotation = 0.f;
 
 public:
     using IRenderPass::IRenderPass;
+
+    // This example uses a single large constant buffer with multiple views to draw multiple versions of the same model.
+    // The alignment and size of partially bound constant buffers must be a multiple of 256 bytes,
+    // so define a struct that represents one constant buffer entry or slice for one draw call.
+    struct ConstantBufferEntry
+    {
+        dm::float4x4 viewProjMatrix;
+        float padding[16*3];
+    };
+
+    static_assert(sizeof(ConstantBufferEntry) == nvrhi::c_ConstantBufferOffsetSizeAlignment, "sizeof(ConstantBufferEntry) must be 256 bytes");
 
     bool Init()
     {
@@ -119,7 +139,8 @@ public:
             return false;
         }
 
-        m_ConstantBuffer = GetDevice()->createBuffer(nvrhi::utils::CreateVolatileConstantBufferDesc(sizeof(math::float4x4), "ConstantBuffer", engine::c_MaxRenderPassConstantBufferVersions));
+        m_ConstantBuffer = GetDevice()->createBuffer(nvrhi::utils::CreateStaticConstantBufferDesc(sizeof(ConstantBufferEntry) * c_NumViews, "ConstantBuffer")
+            .setInitialState(nvrhi::ResourceStates::ConstantBuffer).setKeepInitialState(true));
         
         nvrhi::VertexAttributeDesc attributes[] = {
             nvrhi::VertexAttributeDesc()
@@ -177,18 +198,25 @@ public:
             return false;
         }
 
-
-        nvrhi::BindingSetDesc bindingSetDesc;
-        bindingSetDesc.bindings = {
-            nvrhi::BindingSetItem::ConstantBuffer(0, m_ConstantBuffer),
-            nvrhi::BindingSetItem::Texture_SRV(0, m_Texture),
-            nvrhi::BindingSetItem::Sampler(0, commonPasses.m_AnisotropicWrapSampler)
-        };
-
-        if (!nvrhi::utils::CreateBindingSetAndLayout(GetDevice(), nvrhi::ShaderType::All, 0, bindingSetDesc, m_BindingLayout, m_BindingSet))
+        // Create a single binding layout and multiple binding sets, one set per view.
+        // The different binding sets use different slices of the same constant buffer.
+        for (uint32_t viewIndex = 0; viewIndex < c_NumViews; ++viewIndex)
         {
-            log::error("Couldn't create the binding set or layout");
-            return false;
+            nvrhi::BindingSetDesc bindingSetDesc;
+            bindingSetDesc.bindings = {
+                // Note: using viewIndex to construct a buffer range.
+                nvrhi::BindingSetItem::ConstantBuffer(0, m_ConstantBuffer, nvrhi::BufferRange(sizeof(ConstantBufferEntry) * viewIndex, sizeof(ConstantBufferEntry))),
+                // Texutre and sampler are the same for all model views.
+                nvrhi::BindingSetItem::Texture_SRV(0, m_Texture),
+                nvrhi::BindingSetItem::Sampler(0, commonPasses.m_AnisotropicWrapSampler)
+            };
+
+            // Create the binding layout (if it's empty -- so, on the first iteration) and the binding set.
+            if (!nvrhi::utils::CreateBindingSetAndLayout(GetDevice(), nvrhi::ShaderType::All, 0, bindingSetDesc, m_BindingLayout, m_BindingSets[viewIndex]))
+            {
+                log::error("Couldn't create the binding set or layout");
+                return false;
+            }
         }
         
         return true;
@@ -226,26 +254,48 @@ public:
 
         nvrhi::utils::ClearColorAttachment(m_CommandList, framebuffer, 0, nvrhi::Color(0.f));
 
-        math::affine3 viewMatrix = math::yawPitchRoll(m_Rotation, 0.f, 0.f) 
-            * math::yawPitchRoll(0.f, math::radians(-30.f), 0.f) 
-            * math::translation(math::float3(0, 0, 2));
-        math::float4x4 projMatrix = math::perspProjD3DStyle(math::radians(60.f), float(fbinfo.width) / float(fbinfo.height), 0.1f, 10.f);
-        math::float4x4 viewProjMatrix = math::affineToHomogeneous(viewMatrix) * projMatrix;
-        m_CommandList->writeBuffer(m_ConstantBuffer, &viewProjMatrix, sizeof(viewProjMatrix));
-        
-        nvrhi::GraphicsState state;
-        state.bindings = { m_BindingSet };
-        state.indexBuffer = { m_IndexBuffer, nvrhi::Format::R32_UINT, 0 };
-        state.vertexBuffers = { { m_VertexBuffer, 0, 0 } };
-        state.pipeline = m_Pipeline;
-        state.framebuffer = framebuffer;
-        state.viewport.addViewportAndScissorRect(fbinfo.getViewport());
+        // Fill out the constant buffer slices for multiple views of the model.
+        ConstantBufferEntry modelConstants[c_NumViews];
+        for (uint32_t viewIndex = 0; viewIndex < c_NumViews; ++viewIndex)
+        {
+            math::affine3 viewMatrix = math::rotation(normalize(g_RotationAxes[viewIndex]), m_Rotation) 
+                * math::yawPitchRoll(0.f, math::radians(-30.f), 0.f) 
+                * math::translation(math::float3(0, 0, 2));
+            math::float4x4 projMatrix = math::perspProjD3DStyle(math::radians(60.f), float(fbinfo.width) / float(fbinfo.height), 0.1f, 10.f);
+            math::float4x4 viewProjMatrix = math::affineToHomogeneous(viewMatrix) * projMatrix;
+            modelConstants[viewIndex].viewProjMatrix = viewProjMatrix;
+        }
 
-        m_CommandList->setGraphicsState(state);
+        // Upload all constant buffer slices at once.
+        m_CommandList->writeBuffer(m_ConstantBuffer, modelConstants, sizeof(modelConstants));
 
-        nvrhi::DrawArguments args;
-        args.vertexCount = dim(g_Indices);
-        m_CommandList->drawIndexed(args);
+        for (uint32_t viewIndex = 0; viewIndex < c_NumViews; ++viewIndex)
+        {
+            nvrhi::GraphicsState state;
+            // Pick the right binding set for this view.
+            state.bindings = { m_BindingSets[viewIndex] };
+            state.indexBuffer = { m_IndexBuffer, nvrhi::Format::R32_UINT, 0 };
+            state.vertexBuffers = { { m_VertexBuffer, 0, 0 } };
+            state.pipeline = m_Pipeline;
+            state.framebuffer = framebuffer;
+
+            // Construct the viewport so that all viewports form a grid.
+            const float width = float(fbinfo.width) * 0.5f;
+            const float height = float(fbinfo.height) * 0.5f;
+            const float left = width * float(viewIndex % 2);
+            const float top = height * float(viewIndex / 2);
+
+            const nvrhi::Viewport viewport = nvrhi::Viewport(left, left + width, top, top + height, 0.f, 1.f);
+            state.viewport.addViewportAndScissorRect(viewport);
+
+            // Update the pipeline, bindings, and other state.
+            m_CommandList->setGraphicsState(state);
+
+            // Draw the model.
+            nvrhi::DrawArguments args;
+            args.vertexCount = dim(g_Indices);
+            m_CommandList->drawIndexed(args);
+        }
 
         m_CommandList->close();
         GetDevice()->executeCommandList(m_CommandList);

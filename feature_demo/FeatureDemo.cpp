@@ -49,6 +49,7 @@
 #include <donut/render/SsaoPass.h>
 #include <donut/render/TemporalAntiAliasingPass.h>
 #include <donut/render/ToneMappingPasses.h>
+#include <donut/render/MipMapGenPass.h>
 #include <donut/app/ApplicationBase.h>
 #include <donut/app/UserInterfaceUtils.h>
 #include <donut/app/Camera.h>
@@ -130,10 +131,12 @@ public:
 
         desc.format = nvrhi::Format::RGBA16_FLOAT;
         desc.isUAV = true;
+        desc.mipLevels = uint32_t(std::floorf(std::log2f(float(std::max(desc.width, desc.height)))) + 1.f); // Used to test the MipMapGen pass
         desc.debugName = "ResolvedColor";
         ResolvedColor = device->createTexture(desc);
 
         desc.format = nvrhi::Format::RGBA16_SNORM;
+        desc.mipLevels = 1;
         desc.debugName = "TemporalFeedback1";
         TemporalFeedback1 = device->createTexture(desc);
         desc.debugName = "TemporalFeedback2";
@@ -261,6 +264,7 @@ struct UIData
     bool                                DisplayShadowMap = false;
     bool                                UseThirdPersonCamera = false;
     bool                                EnableAnimations = false;
+    bool                                TestMipMapGen = false;
     std::shared_ptr<Material>           SelectedMaterial;
     std::shared_ptr<SceneGraphNode>     SelectedNode;
     std::string                         ScreenshotFileName;
@@ -295,6 +299,7 @@ private:
     std::shared_ptr<LightProbeProcessingPass> m_LightProbePass;
     std::unique_ptr<MaterialIDPass>     m_MaterialIDPass;
     std::unique_ptr<PixelReadbackPass>  m_PixelReadbackPass;
+    std::unique_ptr<MipMapGenPass>      m_MipMapGenPass;
 
     std::shared_ptr<IView>              m_View;
     std::shared_ptr<IView>              m_ViewPrevious;
@@ -772,6 +777,7 @@ public:
         m_MaterialIDPass->Init(*m_ShaderFactory, GBufferParams);
 
         m_PixelReadbackPass = std::make_unique<PixelReadbackPass>(GetDevice(), m_ShaderFactory, m_RenderTargets->MaterialIDs, nvrhi::Format::RGBA32_UINT);
+        m_MipMapGenPass = std::make_unique <MipMapGenPass>(GetDevice(), m_ShaderFactory, m_RenderTargets->ResolvedColor, MipMapGenPass::Mode::MODE_COLOR);
 
         m_DeferredLightingPass = std::make_unique<DeferredLightingPass>(GetDevice(), m_CommonPasses);
         m_DeferredLightingPass->Init(m_ShaderFactory);
@@ -1062,7 +1068,8 @@ public:
 
             if (m_RenderTargets->GetSampleCount() > 1)
             {
-                m_CommandList->resolveTexture(m_RenderTargets->ResolvedColor, nvrhi::AllSubresources, m_RenderTargets->HdrColor, nvrhi::AllSubresources);
+                auto subresources = nvrhi::TextureSubresourceSet(0, 1, 0, 1);
+                m_CommandList->resolveTexture(m_RenderTargets->ResolvedColor, subresources, m_RenderTargets->HdrColor, subresources);
                 finalHdrColor = m_RenderTargets->ResolvedColor;
                 finalHdrFramebuffer = m_RenderTargets->ResolvedFramebuffer;
             }
@@ -1084,6 +1091,12 @@ public:
         m_ToneMappingPass->SimpleRender(m_CommandList, toneMappingParams, *m_View, finalHdrColor);
         
         m_CommonPasses->BlitTexture(m_CommandList, framebuffer, m_RenderTargets->LdrColor, &m_BindingCache);
+
+        if (m_ui.TestMipMapGen)
+        {
+            m_MipMapGenPass->Dispatch(m_CommandList);
+            m_MipMapGenPass->Display(m_CommonPasses, m_CommandList, framebuffer);
+        }
 
         if (m_ui.DisplayShadowMap)
         {
@@ -1553,6 +1566,10 @@ protected:
             }
         }
 
+        ImGui::Separator();
+        ImGui::Checkbox("Test MipMapGen Pass", &m_ui.TestMipMapGen);
+        ImGui::Checkbox("Display Shadow Map", &m_ui.DisplayShadowMap);
+
         ImGui::End();
 
         auto material = m_ui.SelectedMaterial;
@@ -1570,7 +1587,7 @@ protected:
             
             ImGui::End();
         }
-        
+
         if (m_ui.AntiAliasingMode != AntiAliasingMode::NONE && m_ui.AntiAliasingMode != AntiAliasingMode::TEMPORAL)
             m_ui.UseDeferredShading = false;
 

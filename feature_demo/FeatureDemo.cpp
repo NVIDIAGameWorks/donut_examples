@@ -131,7 +131,7 @@ public:
 
         desc.format = nvrhi::Format::RGBA16_FLOAT;
         desc.isUAV = true;
-        desc.mipLevels = uint32_t(std::floorf(std::log2f(float(std::max(desc.width, desc.height)))) + 1.f); // Used to test the MipMapGen pass
+        desc.mipLevels = uint32_t(floorf(::log2f(float(std::max(desc.width, desc.height)))) + 1.f); // Used to test the MipMapGen pass
         desc.debugName = "ResolvedColor";
         ResolvedColor = device->createTexture(desc);
 

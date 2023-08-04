@@ -146,12 +146,14 @@ public:
             nvrhi::VertexAttributeDesc()
                 .setName("POSITION")
                 .setFormat(nvrhi::Format::RGB32_FLOAT)
-                .setOffset(offsetof(Vertex, position))
+                .setOffset(0)
+                .setBufferIndex(0)
                 .setElementStride(sizeof(Vertex)),
             nvrhi::VertexAttributeDesc()
                 .setName("UV")
                 .setFormat(nvrhi::Format::RG32_FLOAT)
-                .setOffset(offsetof(Vertex, uv))
+                .setOffset(0)
+                .setBufferIndex(1)
                 .setElementStride(sizeof(Vertex)),
         };
         m_InputLayout = GetDevice()->createInputLayout(attributes, uint32_t(std::size(attributes)), m_VertexShader);
@@ -275,7 +277,11 @@ public:
             // Pick the right binding set for this view.
             state.bindings = { m_BindingSets[viewIndex] };
             state.indexBuffer = { m_IndexBuffer, nvrhi::Format::R32_UINT, 0 };
-            state.vertexBuffers = { { m_VertexBuffer, 0, 0 } };
+            // Bind the vertex buffers in reverse order to test the NVRHI implementation of binding slots
+            state.vertexBuffers = {
+                { m_VertexBuffer, 1, offsetof(Vertex, uv) },
+                { m_VertexBuffer, 0, offsetof(Vertex, position) }
+            };
             state.pipeline = m_Pipeline;
             state.framebuffer = framebuffer;
 

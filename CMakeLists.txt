@@ -46,6 +46,7 @@ add_subdirectory(feature_demo)
 add_subdirectory(examples/basic_triangle)
 add_subdirectory(examples/vertex_buffer)
 add_subdirectory(examples/deferred_shading)
+add_subdirectory(examples/headless)
 
 if (NVRHI_WITH_VULKAN OR NVRHI_WITH_DX12)
 	add_subdirectory(examples/bindless_rendering)

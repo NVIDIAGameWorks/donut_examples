@@ -1717,9 +1717,6 @@ int main(int __argc, const char* const* __argv)
     }
 
     deviceManager->Shutdown();
-#ifdef _DEBUG
-    deviceManager->ReportLiveObjects();
-#endif
     delete deviceManager;
 	
 	return 0;

@@ -11,6 +11,7 @@ This repository provides a collection of example applications built using the [D
 | [Deferred Shading](examples/deferred_shading)             | :white_check_mark: | :white_check_mark: | :white_check_mark: | Draws a textured cube into a G-buffer and applies deferred shading to it. |
 | [Headless Device](examples/headless)                      | :white_check_mark: | :white_check_mark: | :white_check_mark: | Tests operation of a graphics device without a window by adding some numbers. |
 | [Meshlets](examples/meshlets)                             |                    | :white_check_mark: | :white_check_mark: | Renders a triangle using meshlets. |
+| [Ray Traced Particles](examples/rt_particles)             |                    | :white_check_mark: | :white_check_mark: | Renders a particle system using ray tracing in an environment with mirrors. |
 | [Ray Traced Reflections](examples/rt_reflections)         |                    | :white_check_mark: |                    | Rasterizes the G-buffer and renders basic ray traced reflections. Materials are accessed using local root signatures. |
 | [Ray Traced Shadows](examples/rt_shadows)                 |                    | :white_check_mark: | :white_check_mark: | Rasterizes the G-buffer and renders basic ray traced directional shadows. |
 | [Ray Traced Triangle](examples/rt_triangle)               |                    | :white_check_mark: | :white_check_mark: | Renders a triangle using ray tracing. |

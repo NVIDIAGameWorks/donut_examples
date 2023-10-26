@@ -55,6 +55,7 @@ if (NVRHI_WITH_VULKAN OR NVRHI_WITH_DX12)
 	add_subdirectory(examples/rt_shadows)
 	add_subdirectory(examples/rt_reflections)
 	add_subdirectory(examples/rt_bindless)
+	add_subdirectory(examples/rt_particles)
 	add_subdirectory(examples/meshlets)
 
 	if (DONUT_WITH_TASKFLOW)

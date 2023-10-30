@@ -47,14 +47,14 @@ constexpr uint32_t c_MaxParticles = 1024;
 constexpr uint32_t c_IndicesPerQuad = 6;
 constexpr uint32_t c_VerticesPerQuad = 4;
 
-static float random()
+static float RandomFloat()
 {
     return float(std::rand()) / RAND_MAX;
 }
 
-static float3 random3()
+static float3 RandomFloat3()
 {
-    return float3(random(), random(), random());
+    return float3(RandomFloat(), RandomFloat(), RandomFloat());
 }
 
 struct ParticleEntity
@@ -72,13 +72,13 @@ struct ParticleEntity
     {
         active = true;
         position = emitterPosition;
-        velocity = random3() - 0.5f;
+        velocity = RandomFloat3() - 0.5f;
         velocity.y = 1.f + velocity.y;
-        radius = random() * 0.05f + 0.1f;
+        radius = RandomFloat() * 0.05f + 0.1f;
         age = 0.f;
         opacity = 1.f;
-        color = random3() * 0.5f + 0.1f;
-        rotation = random() * 6.28f;
+        color = RandomFloat3() * 0.5f + 0.1f;
+        rotation = RandomFloat() * 6.28f;
     }
 
     void Animate(float time)

@@ -230,7 +230,7 @@ public:
 
         m_CommandList = GetDevice()->createCommandList();
         
-#ifdef DONUT_WITH_DX12
+#if DONUT_WITH_DX12
         // Query VRS tile size (it can vary depending on hardware)
         if (m_UseRawD3D12)
         {
@@ -412,7 +412,7 @@ public:
         m_View.FillPlanarViewConstants(constants.view);
         // the PrepareLights() call below will send the constants to the command list, so no need to call it explictly here
 
-#ifdef DONUT_WITH_DX12
+#if DONUT_WITH_DX12
         if (m_UseRawD3D12)
         {
             // VRS command list methods require ID3D12GraphicsCommandList5
@@ -455,7 +455,7 @@ public:
         render::RenderCompositeView(m_CommandList, &m_View, &m_View, *m_RenderTargets->m_HdrFramebufferDepth, m_Scene->GetSceneGraph()->GetRootNode(), *m_OpaqueDrawStrategy, *m_ForwardPass, forwardContext);
         render::RenderCompositeView(m_CommandList, &m_View, &m_View, *m_RenderTargets->m_HdrFramebufferDepth, m_Scene->GetSceneGraph()->GetRootNode(), *m_TransparentDrawStrategy, *m_ForwardPass, forwardContext);
 
-#ifdef DONUT_WITH_DX12
+#if DONUT_WITH_DX12
         if (m_UseRawD3D12)
         {
             ID3D12GraphicsCommandList* d3dcmdlist = m_CommandList->getNativeObject(nvrhi::ObjectTypes::D3D12_GraphicsCommandList);
@@ -513,7 +513,7 @@ int main(int __argc, const char** __argv)
 
     // if d3d12 is selected and -raw flag is on, use raw d3d12 API path
     bool rawD3D12 = false;
-#ifdef DONUT_WITH_DX12
+#if DONUT_WITH_DX12
     for (int i = 1; i < __argc; i++)
     {
         if (!strcmp(__argv[i], "-raw"))

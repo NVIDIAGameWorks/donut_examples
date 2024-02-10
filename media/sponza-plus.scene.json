@@ -1,7 +1,7 @@
 {
 	"models": [
-		"glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf",
-		"glTF-Sample-Models/2.0/BrainStem/glTF/BrainStem.gltf"
+		"glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf",
+		"glTF-Sample-Assets/Models/BrainStem/glTF/BrainStem.gltf"
 	],
 	"graph": [
 		{

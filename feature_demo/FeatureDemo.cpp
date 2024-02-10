@@ -341,7 +341,7 @@ public:
         m_RootFs->mount("/shaders/donut", frameworkShaderPath);
         m_RootFs->mount("/native", nativeFS);
 
-        std::filesystem::path scenePath = "/media/glTF-Sample-Models/2.0";
+        std::filesystem::path scenePath = "/media/glTF-Sample-Assets/Models";
         m_SceneFilesAvailable = FindScenes(*m_RootFs, scenePath);
 
         if (sceneName.empty() && m_SceneFilesAvailable.empty())

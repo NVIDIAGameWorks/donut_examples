@@ -13,14 +13,11 @@ The work graph code is concentrated in a few locations in the sample code:
 * **work_graph_broadcasting.hlsl**: The HLSL shader code for all nodes in the work graph, written as broadcasting launch nodes.
 
 ### Important Build Note
-After cloning the sample and before building, please download the latest Direct3D Agility SDK and DirectX Compiler packages and extract the x64 binaries from them into the sample's file tree as follows:
-https://www.nuget.org/packages/Microsoft.Direct3D.D3D12/1.613.0
-Place the files **D3D12Core.dll** and **D3D12SDKLayers.dll** in the **donut_examples\examples\work_graphs\AgilitySDK** folder.
-
+This samples requires a DirectX Compiler with support for shader model 6.8 or later. The first released DXC package with this support can be found here:
 https://www.nuget.org/packages/Microsoft.Direct3D.DXC/1.8.2403.18
-Place the files **dxc.exe**, **dxcompiler.dll** and **dxil.dll** in **donut_examples\examples\work_graphs\DXC_bin_x64** folder.
 
-This step will be fixed and removed soon. Sorry for the inconvenience in the mean time.
+Download and extract the package. When configuring the project in CMake, ensure specifying the configuration option **DXC_PATH** to point to
+the **dxc.exe** binary from the DXC package you downloaded and unpacked.
 
 ### Details
 #### Scene

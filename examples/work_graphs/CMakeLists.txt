@@ -25,17 +25,22 @@ file(GLOB sources "*.cpp" "*.h")
 set(project work_graphs_d3d12)
 set(folder "Examples/Work Graphs")
 
+# Copy agility SDK bits to D3D12 folder right next to the executable
+set (D3D12_AGILITY_SDK_RUNTIME_DIR "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/D3D12")
+
+if (NOT EXISTS ${D3D12_AGILITY_SDK_RUNTIME_DIR})
+    execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory ${D3D12_AGILITY_SDK_RUNTIME_DIR})
+endif()
+
+if (NOT EXISTS "${D3D12_AGILITY_SDK_RUNTIME_DIR}/D3D12Core.dll" OR NOT EXISTS "${D3D12_AGILITY_SDK_RUNTIME_DIR}/D3D12SDKLayers.dll")
+    message(STATUS "Extracting Agility SDK runtime bits")
+    execute_process(COMMAND ${CMAKE_COMMAND} -E tar xzf "${CMAKE_CURRENT_SOURCE_DIR}/AgilitySDK/d3d12_1.613.0.zip"
+        WORKING_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/D3D12")
+endif()
+
 # Custom shader compilation using the agility SDK compiler rather than whatever is chosen during CMake config
 set_source_files_properties(SHADER_SOURCES FOLDER ${folder} PROPERTIES VS_TOOL_OVERRIDE "None") 
 add_custom_target(${project}_shaders DEPENDS ShaderMake SOURCES ${SHADER_SOURCES})
-
-if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/DXC_bin_x64/dxc.exe")
-    message(SEND_ERROR "DXC.exe not found - please place the latest DXC into ${CMAKE_CURRENT_SOURCE_DIR}/DXC_bin_x64/")
-endif()
-
-if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AgilitySDK/D3D12Core.dll")
-    message(SEND_ERROR "D3D12Core.dll not found - please place the latest Agility SDK binaries into ${CMAKE_CURRENT_SOURCE_DIR}/AgilitySDK/")
-endif()
 
 set(dxcCompilerCommand ShaderMake
     --config "${CMAKE_CURRENT_SOURCE_DIR}/shaders.cfg"
@@ -43,7 +48,7 @@ set(dxcCompilerCommand ShaderMake
     --platform DXIL
     --binaryBlob --outputExt .bin
     -I ${DONUT_SHADER_INCLUDE_DIR}
-    --compiler "${CMAKE_CURRENT_SOURCE_DIR}/DXC_bin_x64/dxc.exe"
+    --compiler "${DXC_PATH}"
     --shaderModel 6_8)
 
 add_custom_command(TARGET ${project}_shaders PRE_BUILD COMMAND ${dxcCompilerCommand})
@@ -59,13 +64,3 @@ set_target_properties(${project} PROPERTIES FOLDER ${folder})
 if (MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W3 /MP")
 endif()
-
-# Copy agility SDK bits to D3D12 folder right next to the executable
-add_custom_target(TARGET ${project} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/D3D12")
-
-add_custom_command(TARGET ${project} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/AgilitySDK/D3D12Core.dll" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/D3D12/D3D12Core.dll")
-
-add_custom_command(TARGET ${project} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/AgilitySDK/D3D12SDKLayers.dll" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/D3D12/D3D12SDKLayers.dll")

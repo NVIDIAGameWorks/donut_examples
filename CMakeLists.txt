@@ -41,12 +41,18 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 set(DONUT_SHADERS_OUTPUT_DIR "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders/framework")
 
+option(INCLUDE_WORKGRAPHS_EXAMPLE "Include the examples/work_graphs project (depends on SDK bits)" OFF)
+
 add_subdirectory(donut)
 add_subdirectory(feature_demo)
 add_subdirectory(examples/basic_triangle)
 add_subdirectory(examples/vertex_buffer)
 add_subdirectory(examples/deferred_shading)
 add_subdirectory(examples/headless)
+
+if (NVRHI_WITH_DX12 AND INCLUDE_WORKGRAPHS_EXAMPLE)
+	add_subdirectory(examples/work_graphs)
+endif()
 
 if (NVRHI_WITH_VULKAN OR NVRHI_WITH_DX12)
 	add_subdirectory(examples/bindless_rendering)

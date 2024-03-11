@@ -19,6 +19,7 @@ This repository provides a collection of example applications built using the [D
 | [Threaded Rendering](examples/threaded_rendering)         |                    | :white_check_mark: | :white_check_mark: | Renders a cube map view of a scene using multiple threads, one per face. |
 | [Variable Shading](examples/variable_shading)             |                    | :white_check_mark: | :white_check_mark: | Renders a scene with variable shading rate specified by a texture. |
 | [Vertex Buffer](examples/vertex_buffer)                   | :white_check_mark: | :white_check_mark: | :white_check_mark: | Creates a vertex buffer for a cube and draws the cube. |
+| [Work Graphs](examples/work_graphs)                       |                    | :white_check_mark: |                    | Demonstrates the new D3D12 work graphs API via a tiled deferred shading renderer that dynamically chooses shaders for each screen tile. Requires CMake define `INCLUDE_WORKGRAPHS_EXAMPLE=ON`. |
 
 ## Requirements
 

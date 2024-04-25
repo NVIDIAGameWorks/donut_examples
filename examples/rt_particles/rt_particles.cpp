@@ -273,6 +273,7 @@ public:
         bufferDesc.canHaveRawViews = true;
         bufferDesc.initialState = nvrhi::ResourceStates::ShaderResource | nvrhi::ResourceStates::AccelStructBuildInput;
         bufferDesc.keepInitialState = true;
+        bufferDesc.isAccelStructBuildInput = true;
         m_ParticleBuffers->indexBuffer = GetDevice()->createBuffer(bufferDesc);
 
         // Vertex buffer
@@ -398,15 +399,18 @@ public:
         m_ParticleGeometry->numIndices = numParticles * c_IndicesPerQuad;
         m_ParticleGeometry->numVertices = numParticles * c_VerticesPerQuad;
 
-        // Copy the index and vertex data to the GPU
-        commandList->writeBuffer(m_ParticleBuffers->indexBuffer, m_ParticleBuffers->indexData.data(), m_ParticleGeometry->numIndices * sizeof(uint32_t));
-        commandList->writeBuffer(m_ParticleBuffers->vertexBuffer, m_ParticleBuffers->positionData.data(), m_ParticleGeometry->numVertices *  sizeof(float3),
-            m_ParticleBuffers->getVertexBufferRange(engine::VertexAttribute::Position).byteOffset);
-        commandList->writeBuffer(m_ParticleBuffers->vertexBuffer, m_ParticleBuffers->texcoord1Data.data(), m_ParticleGeometry->numVertices * sizeof(float2),
-            m_ParticleBuffers->getVertexBufferRange(engine::VertexAttribute::TexCoord1).byteOffset);
+        if (numParticles > 0)
+        {
+            // Copy the index and vertex data to the GPU
+            commandList->writeBuffer(m_ParticleBuffers->indexBuffer, m_ParticleBuffers->indexData.data(), m_ParticleGeometry->numIndices * sizeof(uint32_t));
+            commandList->writeBuffer(m_ParticleBuffers->vertexBuffer, m_ParticleBuffers->positionData.data(), m_ParticleGeometry->numVertices *  sizeof(float3),
+                m_ParticleBuffers->getVertexBufferRange(engine::VertexAttribute::Position).byteOffset);
+            commandList->writeBuffer(m_ParticleBuffers->vertexBuffer, m_ParticleBuffers->texcoord1Data.data(), m_ParticleGeometry->numVertices * sizeof(float2),
+                m_ParticleBuffers->getVertexBufferRange(engine::VertexAttribute::TexCoord1).byteOffset);
 
-        // Copy the particle info data to the GPU
-        commandList->writeBuffer(m_ParticleInfoBuffer, m_ParticleInfoData.data(), numParticles * sizeof(ParticleInfo), 0);
+            // Copy the particle info data to the GPU
+            commandList->writeBuffer(m_ParticleInfoBuffer, m_ParticleInfoData.data(), numParticles * sizeof(ParticleInfo), 0);
+        }
 
         // Build the BLAS
         nvrhi::rt::AccelStructDesc blasDesc;

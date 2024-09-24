@@ -78,3 +78,7 @@ endif()
 
 if (NVRHI_WITH_VULKAN OR NVRHI_WITH_DX12)
 endif()
+
+if (DONUT_WITH_AFTERMATH AND NVRHI_WITH_AFTERMATH)
+    add_subdirectory(examples/aftermath)
+endif()

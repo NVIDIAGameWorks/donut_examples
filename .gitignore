@@ -1,6 +1,7 @@
+/.vs
+/.vscode
+/aftermath/
 /bin/
 /build*/
-/.vs
-/nvapi/
 /donut-*
-/.vscode
+/nvapi/

@@ -557,13 +557,14 @@ public:
     {
         using namespace std::chrono;
 
-        Scene* scene = new Scene(GetDevice(), *m_ShaderFactory, fs, m_TextureCache, nullptr, nullptr);
+        std::unique_ptr<engine::Scene> scene = std::make_unique<engine::Scene>(GetDevice(),
+            *m_ShaderFactory, fs, m_TextureCache, nullptr, nullptr);
 
         auto startTime = high_resolution_clock::now();
 
         if (scene->Load(fileName))
         {
-            m_Scene = std::unique_ptr<Scene>(scene);
+            m_Scene = std::move(scene);
 
             auto endTime = high_resolution_clock::now();
             auto duration = duration_cast<milliseconds>(endTime - startTime).count();

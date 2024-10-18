@@ -162,11 +162,12 @@ public:
 
     bool LoadScene(std::shared_ptr<vfs::IFileSystem> fs, const std::filesystem::path& sceneFileName) override 
     {
-        engine::Scene* scene = new engine::Scene(GetDevice(), *m_ShaderFactory, fs, m_TextureCache, m_DescriptorTable, nullptr);
+        std::unique_ptr<engine::Scene> scene = std::make_unique<engine::Scene>(GetDevice(),
+            *m_ShaderFactory, fs, m_TextureCache, m_DescriptorTable, nullptr);
 
         if (scene->Load(sceneFileName))
         {
-            m_Scene = std::unique_ptr<engine::Scene>(scene);
+            m_Scene = std::move(scene);
             return true;
         }
 

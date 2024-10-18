@@ -34,7 +34,7 @@ donut_compile_shaders_all_platforms(
     OUTPUT_BASE ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders/${project}
 # applications using Aftermath need to set the --embedPDB option when compiling shaders
 # without it, NSight will not be able to resolve back to original source (only to shader IL)
-    COMPILER_OPTIONS --embedPDB
+    SHADERMAKE_OPTIONS --embedPDB
 )
 
 add_executable(${project} WIN32 ${sources})

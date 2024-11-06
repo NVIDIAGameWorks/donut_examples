@@ -332,7 +332,7 @@ public:
     {
         for (const auto& mesh : m_Scene->GetSceneGraph()->GetMeshes())
         {
-            if (mesh->buffers->hasAttribute(engine::VertexAttribute::JointWeights))
+            if (mesh->isSkinPrototype)
                 continue; // skip the skinning prototypes
             
             nvrhi::rt::AccelStructDesc blasDesc;

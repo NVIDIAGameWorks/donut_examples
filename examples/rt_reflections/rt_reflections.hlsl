@@ -22,20 +22,28 @@
 
 #pragma pack_matrix(row_major)
 
-#define MATERIAL_CB_SLOT        b0, space1
-#define MATERIAL_DIFFUSE_SLOT   t3, space1
-#define MATERIAL_SPECULAR_SLOT  t4, space1
-#define MATERIAL_NORMALS_SLOT   t5, space1
-#define MATERIAL_EMISSIVE_SLOT  t6, space1
-#define MATERIAL_OCCLUSION_SLOT t7, space1
-#define MATERIAL_TRANSMISSION_SLOT t8, space1
-#define MATERIAL_SAMPLER_SLOT   s0
+#include "lighting_cb.h"
+
+// Declare the binding slots for 'material_bindings.hlsli'
+
+#define MATERIAL_REGISTER_SPACE         REFLECTIONS_SPACE_LOCAL
+#define MATERIAL_CB_SLOT                REFLECTIONS_BINDING_MATERIAL_CONSTANTS
+#define MATERIAL_DIFFUSE_SLOT           REFLECTIONS_BINDING_DIFFUSE_TEXTURE
+#define MATERIAL_SPECULAR_SLOT          REFLECTIONS_BINDING_SPECULAR_TEXTURE
+#define MATERIAL_NORMALS_SLOT           REFLECTIONS_BINDING_NORMAL_TEXTURE
+#define MATERIAL_EMISSIVE_SLOT          REFLECTIONS_BINDING_EMISSIVE_TEXTURE
+#define MATERIAL_OCCLUSION_SLOT         REFLECTIONS_BINDING_OCCLUSION_TEXTURE
+#define MATERIAL_TRANSMISSION_SLOT      REFLECTIONS_BINDING_TRANSMISSION_TEXTURE
+#define MATERIAL_OPACITY_SLOT           REFLECTIONS_BINDING_OPACITY_TEXTURE
+
+#define MATERIAL_SAMPLER_REGISTER_SPACE REFLECTIONS_SPACE_GLOBAL
+#define MATERIAL_SAMPLER_SLOT           REFLECTIONS_BINDING_MATERIAL_SAMPLER
 
 #include <donut/shaders/gbuffer.hlsli>
 #include <donut/shaders/scene_material.hlsli>
 #include <donut/shaders/material_bindings.hlsli>
 #include <donut/shaders/lighting.hlsli>
-#include "lighting_cb.h"
+#include <donut/shaders/binding_helpers.hlsli>
 
 // ---[ Structures ]---
 
@@ -56,16 +64,14 @@ struct Attributes
 
 // ---[ Resources ]---
 
-ConstantBuffer<LightingConstants> g_Lighting : register(b0);
-
-RWTexture2D<float4> u_Output : register(u0);
-
-RaytracingAccelerationStructure SceneBVH : register(t0);
-Texture2D t_GBufferDepth : register(t1);
-Texture2D t_GBuffer0 : register(t2);
-Texture2D t_GBuffer1 : register(t3);
-Texture2D t_GBuffer2 : register(t4);
-Texture2D t_GBuffer3 : register(t5);
+ConstantBuffer<LightingConstants> g_Lighting : REGISTER_CBUFFER(REFLECTIONS_BINDING_LIGHTING_CONSTANTS, REFLECTIONS_SPACE_GLOBAL);
+RWTexture2D<float4> u_Output                 : REGISTER_UAV(REFLECTIONS_BINDING_OUTPUT_UAV,             REFLECTIONS_SPACE_GLOBAL);
+RaytracingAccelerationStructure SceneBVH     : REGISTER_SRV(REFLECTIONS_BINDING_SCENE_BVH,              REFLECTIONS_SPACE_GLOBAL);
+Texture2D t_GBufferDepth                     : REGISTER_SRV(REFLECTIONS_BINDING_GBUFFER_DEPTH_TEXTURE,  REFLECTIONS_SPACE_GLOBAL);
+Texture2D t_GBuffer0                         : REGISTER_SRV(REFLECTIONS_BINDING_GBUFFER_0_TEXTURE,      REFLECTIONS_SPACE_GLOBAL);
+Texture2D t_GBuffer1                         : REGISTER_SRV(REFLECTIONS_BINDING_GBUFFER_1_TEXTURE,      REFLECTIONS_SPACE_GLOBAL);
+Texture2D t_GBuffer2                         : REGISTER_SRV(REFLECTIONS_BINDING_GBUFFER_2_TEXTURE,      REFLECTIONS_SPACE_GLOBAL);
+Texture2D t_GBuffer3                         : REGISTER_SRV(REFLECTIONS_BINDING_GBUFFER_3_TEXTURE,      REFLECTIONS_SPACE_GLOBAL);
 
 // ---[ Ray Generation Shader ]---
 
@@ -173,9 +179,9 @@ void ShadowMiss(inout ShadowHitInfo shadowPayload : SV_RayPayload)
 
 // ---[ Reflection Shaders ]---
 
-Buffer<uint> t_MeshIndexBuffer : register(t0, space1);
-Buffer<float2> t_MeshTexCoordBuffer : register(t1, space1);
-Buffer<float4> t_MeshNormalsBuffer : register(t2, space1);
+Buffer<uint> t_MeshIndexBuffer      : REGISTER_SRV(REFLECTIONS_BINDING_INDEX_BUFFER,     REFLECTIONS_SPACE_LOCAL);
+Buffer<float2> t_MeshTexCoordBuffer : REGISTER_SRV(REFLECTIONS_BINDING_TEX_COORD_BUFFER, REFLECTIONS_SPACE_LOCAL);
+Buffer<float4> t_MeshNormalsBuffer  : REGISTER_SRV(REFLECTIONS_BINDING_NORMAL_BUFFER,    REFLECTIONS_SPACE_LOCAL);
 
 [shader("miss")]
 void ReflectionMiss(inout ReflectionHitInfo reflectionPayload : SV_RayPayload)

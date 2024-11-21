@@ -24,7 +24,7 @@
 
 #include <donut/shaders/bindless.h>
 #include <donut/shaders/utils.hlsli>
-#include <donut/shaders/vulkan.hlsli>
+#include <donut/shaders/binding_helpers.hlsli>
 #include <donut/shaders/packing.hlsli>
 #include <donut/shaders/surface.hlsli>
 #include <donut/shaders/lighting.hlsli>

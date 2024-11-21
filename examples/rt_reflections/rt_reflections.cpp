@@ -272,35 +272,36 @@ public:
 
         nvrhi::BindingLayoutDesc globalBindingLayoutDesc;
         globalBindingLayoutDesc.visibility = nvrhi::ShaderType::All;
-        globalBindingLayoutDesc.registerSpace = 0;
+        globalBindingLayoutDesc.registerSpace = REFLECTIONS_SPACE_GLOBAL;
         globalBindingLayoutDesc.bindings = {
-            { 0, nvrhi::ResourceType::VolatileConstantBuffer },
-            { 0, nvrhi::ResourceType::RayTracingAccelStruct },
-            { 1, nvrhi::ResourceType::Texture_SRV },
-            { 2, nvrhi::ResourceType::Texture_SRV },
-            { 3, nvrhi::ResourceType::Texture_SRV },
-            { 4, nvrhi::ResourceType::Texture_SRV },
-            { 5, nvrhi::ResourceType::Texture_SRV },
-            { 0, nvrhi::ResourceType::Texture_UAV },
-            { 0, nvrhi::ResourceType::Sampler }
+            nvrhi::BindingLayoutItem::VolatileConstantBuffer(REFLECTIONS_BINDING_LIGHTING_CONSTANTS),
+            nvrhi::BindingLayoutItem::RayTracingAccelStruct(REFLECTIONS_BINDING_SCENE_BVH),
+            nvrhi::BindingLayoutItem::Texture_SRV(REFLECTIONS_BINDING_GBUFFER_DEPTH_TEXTURE),
+            nvrhi::BindingLayoutItem::Texture_SRV(REFLECTIONS_BINDING_GBUFFER_0_TEXTURE),
+            nvrhi::BindingLayoutItem::Texture_SRV(REFLECTIONS_BINDING_GBUFFER_1_TEXTURE),
+            nvrhi::BindingLayoutItem::Texture_SRV(REFLECTIONS_BINDING_GBUFFER_2_TEXTURE),
+            nvrhi::BindingLayoutItem::Texture_SRV(REFLECTIONS_BINDING_GBUFFER_3_TEXTURE),
+            nvrhi::BindingLayoutItem::Texture_UAV(REFLECTIONS_BINDING_OUTPUT_UAV),
+            nvrhi::BindingLayoutItem::Sampler(REFLECTIONS_BINDING_MATERIAL_SAMPLER)
         };
 
         m_GlobalBindingLayout = GetDevice()->createBindingLayout(globalBindingLayoutDesc);
 
         nvrhi::BindingLayoutDesc localBindingLayoutDesc;
         localBindingLayoutDesc.visibility = nvrhi::ShaderType::All;
-        localBindingLayoutDesc.registerSpace = 1;
+        localBindingLayoutDesc.registerSpace = REFLECTIONS_SPACE_LOCAL;
         localBindingLayoutDesc.bindings = {
-            { 0, nvrhi::ResourceType::TypedBuffer_SRV },
-            { 1, nvrhi::ResourceType::TypedBuffer_SRV },
-            { 2, nvrhi::ResourceType::TypedBuffer_SRV },
-            { 3, nvrhi::ResourceType::Texture_SRV },
-            { 4, nvrhi::ResourceType::Texture_SRV },
-            { 5, nvrhi::ResourceType::Texture_SRV },
-            { 6, nvrhi::ResourceType::Texture_SRV },
-            { 7, nvrhi::ResourceType::Texture_SRV },
-            { 8, nvrhi::ResourceType::Texture_SRV },
-            { 0, nvrhi::ResourceType::ConstantBuffer }
+            nvrhi::BindingLayoutItem::TypedBuffer_SRV(REFLECTIONS_BINDING_INDEX_BUFFER),
+            nvrhi::BindingLayoutItem::TypedBuffer_SRV(REFLECTIONS_BINDING_TEX_COORD_BUFFER),
+            nvrhi::BindingLayoutItem::TypedBuffer_SRV(REFLECTIONS_BINDING_NORMAL_BUFFER),
+            nvrhi::BindingLayoutItem::Texture_SRV(REFLECTIONS_BINDING_DIFFUSE_TEXTURE),
+            nvrhi::BindingLayoutItem::Texture_SRV(REFLECTIONS_BINDING_SPECULAR_TEXTURE),
+            nvrhi::BindingLayoutItem::Texture_SRV(REFLECTIONS_BINDING_NORMAL_TEXTURE),
+            nvrhi::BindingLayoutItem::Texture_SRV(REFLECTIONS_BINDING_EMISSIVE_TEXTURE),
+            nvrhi::BindingLayoutItem::Texture_SRV(REFLECTIONS_BINDING_OCCLUSION_TEXTURE),
+            nvrhi::BindingLayoutItem::Texture_SRV(REFLECTIONS_BINDING_TRANSMISSION_TEXTURE),
+            nvrhi::BindingLayoutItem::Texture_SRV(REFLECTIONS_BINDING_OPACITY_TEXTURE),
+            nvrhi::BindingLayoutItem::ConstantBuffer(REFLECTIONS_BINDING_MATERIAL_CONSTANTS)
         };
 
         m_LocalBindingLayout = GetDevice()->createBindingLayout(localBindingLayoutDesc);
@@ -349,40 +350,43 @@ public:
                 nvrhi::BindingSetDesc bindingSetDesc;
                 bindingSetDesc.bindings = {
                     nvrhi::BindingSetItem::TypedBuffer_SRV(
-                        0,
+                        REFLECTIONS_BINDING_INDEX_BUFFER,
                         mesh->buffers->indexBuffer,
                         nvrhi::Format::R32_UINT,
                         nvrhi::BufferRange((mesh->indexOffset + geometry->indexOffsetInMesh) * sizeof(uint32_t), geometry->numIndices * sizeof(uint32_t))),
                     nvrhi::BindingSetItem::TypedBuffer_SRV(
-                        1,
+                        REFLECTIONS_BINDING_TEX_COORD_BUFFER,
                         mesh->buffers->vertexBuffer,
                         nvrhi::Format::RG32_FLOAT,
                         nvrhi::BufferRange((mesh->vertexOffset + geometry->vertexOffsetInMesh) * sizeof(float2) + mesh->buffers->getVertexBufferRange(engine::VertexAttribute::TexCoord1).byteOffset, geometry->numVertices * sizeof(float2))),
                     nvrhi::BindingSetItem::TypedBuffer_SRV(
-                        2,
+                        REFLECTIONS_BINDING_NORMAL_BUFFER,
                         mesh->buffers->vertexBuffer,
                         nvrhi::Format::RGBA8_SNORM,
                         nvrhi::BufferRange((mesh->vertexOffset + geometry->vertexOffsetInMesh) * sizeof(uint32_t) + mesh->buffers->getVertexBufferRange(engine::VertexAttribute::Normal).byteOffset, geometry->numVertices * sizeof(uint32_t))),
                     nvrhi::BindingSetItem::Texture_SRV(
-                        3,
+                        REFLECTIONS_BINDING_DIFFUSE_TEXTURE,
                         geometry->material->baseOrDiffuseTexture && geometry->material->baseOrDiffuseTexture->texture ? geometry->material->baseOrDiffuseTexture->texture : m_CommonPasses->m_WhiteTexture),
                     nvrhi::BindingSetItem::Texture_SRV(
-                        4,
+                        REFLECTIONS_BINDING_SPECULAR_TEXTURE,
                         geometry->material->metalRoughOrSpecularTexture && geometry->material->metalRoughOrSpecularTexture->texture ? geometry->material->metalRoughOrSpecularTexture->texture : m_CommonPasses->m_WhiteTexture),
                     nvrhi::BindingSetItem::Texture_SRV(
-                        5,
+                        REFLECTIONS_BINDING_NORMAL_TEXTURE,
                         geometry->material->normalTexture && geometry->material->normalTexture->texture ? geometry->material->normalTexture->texture : m_CommonPasses->m_BlackTexture),
                     nvrhi::BindingSetItem::Texture_SRV(
-                        6,
+                        REFLECTIONS_BINDING_EMISSIVE_TEXTURE,
                         geometry->material->emissiveTexture && geometry->material->emissiveTexture->texture ? geometry->material->emissiveTexture->texture : m_CommonPasses->m_BlackTexture),
                     nvrhi::BindingSetItem::Texture_SRV(
-                        7,
+                        REFLECTIONS_BINDING_OCCLUSION_TEXTURE,
                         geometry->material->occlusionTexture && geometry->material->occlusionTexture->texture ? geometry->material->occlusionTexture->texture : m_CommonPasses->m_WhiteTexture),
                     nvrhi::BindingSetItem::Texture_SRV(
-                        8,
+                        REFLECTIONS_BINDING_TRANSMISSION_TEXTURE,
                         geometry->material->transmissionTexture && geometry->material->transmissionTexture->texture ? geometry->material->transmissionTexture->texture : m_CommonPasses->m_BlackTexture),
+                    nvrhi::BindingSetItem::Texture_SRV(
+                        REFLECTIONS_BINDING_OPACITY_TEXTURE,
+                        geometry->material->opacityTexture && geometry->material->opacityTexture->texture ? geometry->material->opacityTexture->texture : m_CommonPasses->m_WhiteTexture),
                     nvrhi::BindingSetItem::ConstantBuffer(
-                        0,
+                        REFLECTIONS_BINDING_MATERIAL_CONSTANTS,
                         geometry->material->materialConstants)
                 };
 
@@ -475,15 +479,15 @@ public:
 
             nvrhi::BindingSetDesc bindingSetDesc;
             bindingSetDesc.bindings = {
-                nvrhi::BindingSetItem::ConstantBuffer(0, m_ConstantBuffer),
-                nvrhi::BindingSetItem::RayTracingAccelStruct(0, m_TopLevelAS),
-                nvrhi::BindingSetItem::Texture_SRV(1, m_RenderTargets->m_Depth),
-                nvrhi::BindingSetItem::Texture_SRV(2, m_RenderTargets->m_GBufferDiffuse),
-                nvrhi::BindingSetItem::Texture_SRV(3, m_RenderTargets->m_GBufferSpecular),
-                nvrhi::BindingSetItem::Texture_SRV(4, m_RenderTargets->m_GBufferNormals),
-                nvrhi::BindingSetItem::Texture_SRV(5, m_RenderTargets->m_GBufferEmissive),
-                nvrhi::BindingSetItem::Texture_UAV(0, m_RenderTargets->m_HdrColor),
-                nvrhi::BindingSetItem::Sampler(0, m_CommonPasses->m_LinearWrapSampler)
+                nvrhi::BindingSetItem::ConstantBuffer(REFLECTIONS_BINDING_LIGHTING_CONSTANTS, m_ConstantBuffer),
+                nvrhi::BindingSetItem::RayTracingAccelStruct(REFLECTIONS_BINDING_SCENE_BVH, m_TopLevelAS),
+                nvrhi::BindingSetItem::Texture_SRV(REFLECTIONS_BINDING_GBUFFER_DEPTH_TEXTURE, m_RenderTargets->m_Depth),
+                nvrhi::BindingSetItem::Texture_SRV(REFLECTIONS_BINDING_GBUFFER_0_TEXTURE, m_RenderTargets->m_GBufferDiffuse),
+                nvrhi::BindingSetItem::Texture_SRV(REFLECTIONS_BINDING_GBUFFER_1_TEXTURE, m_RenderTargets->m_GBufferSpecular),
+                nvrhi::BindingSetItem::Texture_SRV(REFLECTIONS_BINDING_GBUFFER_2_TEXTURE, m_RenderTargets->m_GBufferNormals),
+                nvrhi::BindingSetItem::Texture_SRV(REFLECTIONS_BINDING_GBUFFER_3_TEXTURE, m_RenderTargets->m_GBufferEmissive),
+                nvrhi::BindingSetItem::Texture_UAV(REFLECTIONS_BINDING_OUTPUT_UAV, m_RenderTargets->m_HdrColor),
+                nvrhi::BindingSetItem::Sampler(REFLECTIONS_BINDING_MATERIAL_SAMPLER, m_CommonPasses->m_LinearWrapSampler)
             };
 
             m_BindingSet = GetDevice()->createBindingSet(bindingSetDesc, m_GlobalBindingLayout);

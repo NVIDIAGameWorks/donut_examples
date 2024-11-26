@@ -83,26 +83,26 @@ public:
         commandList->open();
 
         m_Buffers = std::make_shared<BufferGroup>();
-        m_Buffers->indexBuffer = CreateGeometryBuffer(device, commandList, "IndexBuffer", g_Indices, sizeof(g_Indices), false);
+        m_Buffers->indexBuffer = CreateGeometryBuffer(device, commandList, "IndexBuffer", g_Indices, sizeof(g_Indices), false, false);
 
         uint64_t vertexBufferSize = 0;
         m_Buffers->getVertexBufferRange(VertexAttribute::Position).setByteOffset(vertexBufferSize).setByteSize(sizeof(g_Positions)); vertexBufferSize += sizeof(g_Positions);
         m_Buffers->getVertexBufferRange(VertexAttribute::TexCoord1).setByteOffset(vertexBufferSize).setByteSize(sizeof(g_TexCoords)); vertexBufferSize += sizeof(g_TexCoords);
         m_Buffers->getVertexBufferRange(VertexAttribute::Normal).setByteOffset(vertexBufferSize).setByteSize(sizeof(g_Normals)); vertexBufferSize += sizeof(g_Normals);
         m_Buffers->getVertexBufferRange(VertexAttribute::Tangent).setByteOffset(vertexBufferSize).setByteSize(sizeof(g_Tangents)); vertexBufferSize += sizeof(g_Tangents);
-        m_Buffers->vertexBuffer = CreateGeometryBuffer(device, commandList, "VertexBuffer", nullptr, vertexBufferSize, true);
+        m_Buffers->vertexBuffer = CreateGeometryBuffer(device, commandList, "VertexBuffer", nullptr, vertexBufferSize, true, false);
 
         commandList->beginTrackingBufferState(m_Buffers->vertexBuffer, nvrhi::ResourceStates::CopyDest);
         commandList->writeBuffer(m_Buffers->vertexBuffer, g_Positions, sizeof(g_Positions), m_Buffers->getVertexBufferRange(VertexAttribute::Position).byteOffset);
         commandList->writeBuffer(m_Buffers->vertexBuffer, g_TexCoords, sizeof(g_TexCoords), m_Buffers->getVertexBufferRange(VertexAttribute::TexCoord1).byteOffset);
         commandList->writeBuffer(m_Buffers->vertexBuffer, g_Normals, sizeof(g_Normals), m_Buffers->getVertexBufferRange(VertexAttribute::Normal).byteOffset);
         commandList->writeBuffer(m_Buffers->vertexBuffer, g_Tangents, sizeof(g_Tangents), m_Buffers->getVertexBufferRange(VertexAttribute::Tangent).byteOffset);
-        commandList->setPermanentBufferState(m_Buffers->vertexBuffer, nvrhi::ResourceStates::VertexBuffer);
+        commandList->setPermanentBufferState(m_Buffers->vertexBuffer, nvrhi::ResourceStates::ShaderResource);
         
         InstanceData instance{};
         instance.transform = math::float3x4(transpose(math::affineToHomogeneous(math::affine3::identity())));
         instance.prevTransform = instance.transform;
-        m_Buffers->instanceBuffer = CreateGeometryBuffer(device, commandList, "VertexBufferTransform", &instance, sizeof(instance), true);
+        m_Buffers->instanceBuffer = CreateGeometryBuffer(device, commandList, "VertexBufferTransform", &instance, sizeof(instance), false, true);
 
         std::filesystem::path textureFileName = app::GetDirectoryWithExecutable().parent_path() / "media/nvidia-logo.png";
 
@@ -180,14 +180,19 @@ private:
     std::shared_ptr<MeshInstance> m_MeshInstance;
     std::shared_ptr<SceneGraph> m_SceneGraph;
 
-    nvrhi::BufferHandle CreateGeometryBuffer(nvrhi::IDevice* device, nvrhi::ICommandList* commandList, const char* debugName, const void* data, uint64_t dataSize, bool isVertexBuffer)
+    nvrhi::BufferHandle CreateGeometryBuffer(nvrhi::IDevice* device, nvrhi::ICommandList* commandList,
+        const char* debugName, const void* data, uint64_t dataSize, bool isVertexBuffer, bool isInstanceBuffer)
     {
         nvrhi::BufferHandle bufHandle;
 
+        // The G-buffer fill pass accesses instance buffers as structured on DX12 and Vulkan, and as raw on DX11.
+        bool const needStructuredBuffer = isInstanceBuffer && device->getGraphicsAPI() != nvrhi::GraphicsAPI::D3D11;
+        
         nvrhi::BufferDesc desc;
         desc.byteSize = dataSize;
-        desc.isVertexBuffer = isVertexBuffer;
-        desc.isIndexBuffer = !isVertexBuffer;
+        desc.isIndexBuffer = !isVertexBuffer && !isInstanceBuffer;
+        desc.canHaveRawViews = isVertexBuffer || isInstanceBuffer;
+        desc.structStride = needStructuredBuffer ? sizeof(InstanceData) : 0;
         desc.debugName = debugName;
         desc.initialState = nvrhi::ResourceStates::CopyDest;
         bufHandle = device->createBuffer(desc);
@@ -196,7 +201,9 @@ private:
         {
             commandList->beginTrackingBufferState(bufHandle, nvrhi::ResourceStates::CopyDest);
             commandList->writeBuffer(bufHandle, data, dataSize);
-            commandList->setPermanentBufferState(bufHandle, isVertexBuffer ? nvrhi::ResourceStates::VertexBuffer : nvrhi::ResourceStates::IndexBuffer);
+            commandList->setPermanentBufferState(bufHandle, (isVertexBuffer || isInstanceBuffer)
+                ? nvrhi::ResourceStates::ShaderResource
+                : nvrhi::ResourceStates::IndexBuffer);
         }
 
         return bufHandle;

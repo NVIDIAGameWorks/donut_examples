@@ -277,8 +277,10 @@ private:
     typedef ApplicationBase Super;
 
     std::shared_ptr<RootFileSystem>     m_RootFs;
+    std::shared_ptr<NativeFileSystem>   m_NativeFs;
 	std::vector<std::string>            m_SceneFilesAvailable;
     std::string                         m_CurrentSceneName;
+    std::filesystem::path               m_SceneDir;
 	std::shared_ptr<Scene>				m_Scene;
 	std::shared_ptr<ShaderFactory>      m_ShaderFactory;
     std::shared_ptr<DirectionalLight>   m_SunLight;
@@ -331,26 +333,26 @@ public:
         , m_ui(ui)
         , m_BindingCache(deviceManager->GetDevice())
     { 
-        std::shared_ptr<NativeFileSystem> nativeFS = std::make_shared<NativeFileSystem>();
-
-        std::filesystem::path mediaPath = app::GetDirectoryWithExecutable().parent_path() / "media";
-        std::filesystem::path frameworkShaderPath = app::GetDirectoryWithExecutable() / "shaders/framework" / app::GetShaderTypeName(GetDevice()->getGraphicsAPI());
-        
         m_RootFs = std::make_shared<RootFileSystem>();
-        m_RootFs->mount("/media", mediaPath);
-        m_RootFs->mount("/shaders/donut", frameworkShaderPath);
-        m_RootFs->mount("/native", nativeFS);
 
-        std::filesystem::path scenePath = "/media/glTF-Sample-Assets/Models";
-        m_SceneFilesAvailable = FindScenes(*m_RootFs, scenePath);
+        std::filesystem::path mediaDir = app::GetDirectoryWithExecutable().parent_path() / "media";
+        std::filesystem::path frameworkShaderDir = app::GetDirectoryWithExecutable() / "shaders/framework" / app::GetShaderTypeName(GetDevice()->getGraphicsAPI());
+
+        m_RootFs->mount("/media", mediaDir);
+        m_RootFs->mount("/shaders/donut", frameworkShaderDir);
+
+        m_NativeFs = std::make_shared<NativeFileSystem>();
+
+        m_SceneDir = mediaDir / "glTF-Sample-Assets/Models/";
+        m_SceneFilesAvailable = FindScenes(*m_NativeFs, m_SceneDir);
 
         if (sceneName.empty() && m_SceneFilesAvailable.empty())
         {
             log::fatal("No scene file found in media folder '%s'\n"
-                "Please make sure that folder contains valid scene files.", scenePath.generic_string().c_str());
+                "Please make sure that folder contains valid scene files.", m_SceneDir.generic_string().c_str());
         }
         
-        m_TextureCache = std::make_shared<TextureCache>(GetDevice(), m_RootFs, nullptr);
+        m_TextureCache = std::make_shared<TextureCache>(GetDevice(), m_NativeFs, nullptr);
 
         m_ShaderFactory = std::make_shared<ShaderFactory>(GetDevice(), m_RootFs, "/shaders");
         m_CommonPasses = std::make_shared<CommonRenderPasses>(GetDevice(), m_ShaderFactory);
@@ -394,7 +396,7 @@ public:
         if (sceneName.empty())
             SetCurrentSceneName(app::FindPreferredScene(m_SceneFilesAvailable, "Sponza.gltf"));
         else
-            SetCurrentSceneName("/native/" + sceneName);
+            SetCurrentSceneName(sceneName);
 
         CreateLightProbes(4);
     }
@@ -414,6 +416,11 @@ public:
 		return m_SceneFilesAvailable;
 	}
 
+    std::filesystem::path const& GetSceneDir() const
+    {
+        return m_SceneDir;
+    }
+
     std::string GetCurrentSceneName() const
     {
         return m_CurrentSceneName;
@@ -426,7 +433,7 @@ public:
 
 		m_CurrentSceneName = sceneName;
 
-		BeginLoadingScene(m_RootFs, m_CurrentSceneName);
+		BeginLoadingScene(m_NativeFs, m_CurrentSceneName);
     }
 
     void CopyActiveCameraToFirstPerson()
@@ -1439,14 +1446,23 @@ protected:
         if (frameTime > 0.0)
             ImGui::Text("%.3f ms/frame (%.1f FPS)", frameTime * 1e3, 1.0 / frameTime);
 
+        const std::string sceneDir = m_app->GetSceneDir().generic_string();
+        
+        auto getRelativePath = [&sceneDir](std::string const& name)
+        {
+            return donut::string_utils::starts_with(name, sceneDir)
+                ? name.c_str() + sceneDir.size()
+                : name.c_str();
+        };
+
         const std::string currentScene = m_app->GetCurrentSceneName();
-        if (ImGui::BeginCombo("Scene", currentScene.c_str()))
+        if (ImGui::BeginCombo("Scene", getRelativePath(currentScene)))
         {
             const std::vector<std::string>& scenes = m_app->GetAvailableScenes();
             for (const std::string& scene : scenes)
             {
                 bool is_selected = scene == currentScene;
-                if (ImGui::Selectable(scene.c_str(), is_selected))
+                if (ImGui::Selectable(getRelativePath(scene), is_selected))
                     m_app->SetCurrentSceneName(scene);
                 if (is_selected)
                     ImGui::SetItemDefaultFocus();

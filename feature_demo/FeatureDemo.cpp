@@ -1379,8 +1379,8 @@ class UIRenderer : public ImGui_Renderer
 private:
     std::shared_ptr<FeatureDemo> m_app;
 
-	ImFont* m_FontOpenSans = nullptr;
-	ImFont* m_FontDroidMono = nullptr;
+	std::shared_ptr<app::RegisteredFont> m_FontOpenSans;
+	std::shared_ptr<app::RegisteredFont> m_FontDroidMono;
 
 	std::unique_ptr<ImGui_Console> m_console;
     std::shared_ptr<engine::Light> m_SelectedLight;
@@ -1396,8 +1396,8 @@ public:
     {
         m_CommandList = GetDevice()->createCommandList();
 
-		m_FontOpenSans = this->LoadFont(*(app->GetRootFs()), "/media/fonts/OpenSans/OpenSans-Regular.ttf", 17.f);
-		m_FontDroidMono = this->LoadFont(*(app->GetRootFs()), "/media/fonts/DroidSans/DroidSans-Mono.ttf", 14.f);
+		m_FontOpenSans = CreateFontFromFile(*(app->GetRootFs()), "/media/fonts/OpenSans/OpenSans-Regular.ttf", 17.f);
+		m_FontDroidMono = CreateFontFromFile(*(app->GetRootFs()), "/media/fonts/DroidSans/DroidSans-Mono.ttf", 14.f);
 
 		ImGui_Console::Options opts;
 		opts.font = m_FontDroidMono;
@@ -1421,6 +1421,7 @@ protected:
         if (m_app->IsSceneLoading())
         {
             BeginFullScreenWindow();
+            ImGui::PushFont(m_FontOpenSans->GetScaledFont());
 
             char messageBuffer[256];
             const auto& stats = Scene::GetLoadingStats();
@@ -1429,17 +1430,22 @@ protected:
 
             DrawScreenCenteredText(messageBuffer);
 
+            ImGui::PopFont();
             EndFullScreenWindow();
 
             return;
         }
+
+        ImGui::PushFont(m_FontOpenSans->GetScaledFont());
 
         if (m_ui.ShowConsole && m_console)
         {
             m_console->Render(&m_ui.ShowConsole);
         }
 
-        ImGui::SetNextWindowPos(ImVec2(10.f, 10.f), 0);
+        float const fontSize = ImGui::GetFontSize();
+
+        ImGui::SetNextWindowPos(ImVec2(fontSize * 0.6f, fontSize * 0.6f), 0);
         ImGui::Begin("Settings", 0, ImGuiWindowFlags_AlwaysAutoResize);
         ImGui::Text("Renderer: %s", GetDeviceManager()->GetRendererString());
         double frameTime = GetDeviceManager()->GetAverageFrameTimeSeconds();
@@ -1592,7 +1598,7 @@ protected:
         auto material = m_ui.SelectedMaterial;
         if (material)
         {
-            ImGui::SetNextWindowPos(ImVec2(float(width) - 10.f, 10.f), 0, ImVec2(1.f, 0.f));
+            ImGui::SetNextWindowPos(ImVec2(float(width) - fontSize * 0.6f, fontSize * 0.6f), 0, ImVec2(1.f, 0.f));
             ImGui::Begin("Material Editor");
             ImGui::Text("Material %d: %s", material->materialID, material->name.c_str());
 
@@ -1610,6 +1616,8 @@ protected:
 
         if (!m_ui.UseDeferredShading)
             m_ui.EnableSsao = false;
+
+        ImGui::PopFont();
     }
 };
 
@@ -1674,6 +1682,8 @@ int main(int __argc, const char* const* __argv)
     deviceParams.swapChainBufferCount = 3;
     deviceParams.startFullscreen = false;
     deviceParams.vsyncEnabled = true;
+    deviceParams.enablePerMonitorDPI = true;
+    deviceParams.supportExplicitDisplayScaling = true;
 
     std::string sceneName;
     if (!ProcessCommandLine(__argc, __argv, deviceParams, sceneName))

@@ -45,3 +45,13 @@ set_target_properties(${project} PROPERTIES FOLDER ${folder})
 if (MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W3 /MP")
 endif()
+
+if (WIN32)
+    add_custom_command( TARGET ${project} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy ${AFTERMATH_RUNTIME_LIBRARY} $<TARGET_FILE_DIR:${project}>
+        COMMAND_EXPAND_LISTS )
+else()
+    add_custom_command( TARGET ${project} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy ${AFTERMATH_LIBRARY} $<TARGET_FILE_DIR:${project}>
+        COMMAND_EXPAND_LISTS )
+endif()

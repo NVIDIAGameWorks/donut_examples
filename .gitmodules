@@ -1,6 +1,6 @@
 [submodule "donut"]
 	path = donut
-	url = https://github.com/NVIDIAGameWorks/donut.git
+	url = ../Donut.git
 [submodule "media/glTF-Sample-Assets"]
 	path = media/glTF-Sample-Assets
 	url = https://github.com/KhronosGroup/glTF-Sample-Assets.git

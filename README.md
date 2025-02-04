@@ -1,6 +1,6 @@
-# Donut Examples
+# Donut Samples
 
-This repository provides a collection of example applications built using the [Donut framework](https://github.com/NVIDIAGameWorks/donut).
+This repository provides a collection of example applications built using the [Donut framework](https://github.com/NVIDIA-RTX/Donut).
 
 | Application                                               |        DX11        |        DX12        |        VK          | Description |
 |-----------------------------------------------------------|:------------------:|:------------------:|:------------------:|-------------|
@@ -23,7 +23,7 @@ This repository provides a collection of example applications built using the [D
 
 ## Requirements
 
-Same as the [requirements for Donut](https://github.com/NVIDIAGameWorks/donut).
+Same as the [requirements for Donut](https://github.com/NVIDIA-RTX/Donut).
 
 ## Build
 
@@ -61,7 +61,7 @@ and the API can be switched from the command line. Use these command line argume
 
 The Feature Demo supports additional command line arguments:
 
-- `-debug` to enable the graphics API debug layer or runtime, and the [NVRHI](https://github.com/NVIDIAGameWorks/nvrhi) validation layer.
+- `-debug` to enable the graphics API debug layer or runtime, and the [NVRHI](https://github.com/NVIDIA-RTX/NVRHI) validation layer.
 - `-fullscreen` to start in full screen mode.
 - `-no-vsync` to start without VSync (can be toggled in the GUI).
 - `-print-graph` to print the scene graph into the output log on startup.
